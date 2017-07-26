@@ -16,6 +16,7 @@ function [J grad] = nnCostFunction(nn_params, ...
 
 % Reshape nn_params back into the parameters Theta1 and Theta2, the weight matrices
 % for our 2 layer neural network
+
 Theta1 = reshape(nn_params(1:hidden_layer_size * (input_layer_size + 1)), ...
                  hidden_layer_size, (input_layer_size + 1));
 
@@ -61,98 +62,42 @@ Theta2_grad = zeros(size(Theta2));
 %               the regularization separately and then add them to Theta1_grad
 %               and Theta2_grad from Part 2.
 %
+a1 = [ones(m,1) X];
+z2 = a1*Theta1';
+a2 = sigmoid(z2);
+a2=[ones(m,1) a2];
+z3 = a2 * Theta2';
+a3 = sigmoid(z3);
 
+delta3 = zeros(num_labels,1);
 
-X = [ones(m, 1) X];
-tempy = zeros(m,num_labels);
-for i = 1:m,
-  tempy(i,y(i,1)) = 1;
-end;
+for i = 1:num_labels
+	s=y==i;
+	J = J + sum(-s.*log(a3(:,i)) - (1-s).*log(1-a3(:,i)))/m;
+end
+J = J + (sum(sum(Theta1(:,2:end).^2)) + sum(sum(Theta2(:,2:end).^2)))*lambda/(2*m);
+s=[1:num_labels]';
+p=zeros(num_labels,1);
+del_1 = zeros(hidden_layer_size,input_layer_size+1);
+del_2 = zeros(num_labels, hidden_layer_size+1);
 
-temp1 = X*Theta1';
-temp1 = sigmoid(temp1);
+for i = 1:num_labels
+	a3(:,i) = a3(:,i) - (y==i);
+end
 
-m1 = size(temp1, 1);
-temp1 = [ones(m1, 1) temp1];
-
-temp2 = temp1*Theta2';
-temp2 = sigmoid(temp2);
-
-temp3 = log(temp2);
-temp4 = log(1-temp2);
-
-sumtemp = 0;
-
-for i = 1:m,
-  for j = 1:num_labels,
-    sumtemp = sumtemp + (tempy(i,j)*temp3(i,j) + (1-tempy(i,j))*temp4(i,j));
-  end;
-end;
-
-J = 1/m * sumtemp * (-1);
-
-% regularized version
-
-[nrows1 ncolms1] = size(Theta1);
-[nrows2 ncolms2] = size(Theta2);
-
-sumtheta1 = 0;
-for i = 1:nrows1,
-  for j = 2:ncolms1,
-    sumtheta1 = sumtheta1 + (Theta1(i,j))^2;
-  end;
-end;
-
-sumtheta2 = 0;
-for i = 1:nrows2,
-  for j = 2:ncolms2,
-    sumtheta2 = sumtheta2 + (Theta2(i,j))^2;
-  end;
-end; 
-
-sumall = sumtheta1 + sumtheta2;
-sumall = lambda/(2*m) * sumall;
-
-J = J + sumall;
-
-bigdelta3 = zeros(m,num_labels);
-bigdelta2 = zeros(m,hidden_layer_size);
-bigdelta1 = zeros(m,input_layer_size);
-
-
-for i = 1:m,
-  a1 = X(i,:);
-  temp1 = a1*Theta1';
-  a2 = sigmoid(temp1);
-  a2 = [ones(1,1) a2];
-  temp2 = a2*Theta2';
-  a3 = sigmoid(temp2);
-  delta3 = a3 - tempy(i,:);
-  temp1 = [ones(1,1) temp1];
-  delta2 = (Theta2'*delta3')'.*sigmoidGradient(temp1);
-  delta2 = delta2(2:end);
-  bigdelta2(i,:) = bigdelta2(i,:) + 
-  
-  
-  
-
-
-
-
-
-
-
-
-
-
-
-
+delta3 = a3;
+delta2 = (delta3 * Theta2(:,2:end)).*sigmoidGradient(z2);
+del_1 = delta2'*a1;
+del_2 = delta3'*a2;
 
 % -------------------------------------------------------------
-
 % =========================================================================
 
+Theta1_grad = del_1/m ;
+Theta2_grad = del_2/m;
 % Unroll gradients
+Theta1_grad(:,2:end) = Theta1_grad(:,2:end) + lambda/m * Theta1(:,2:end);
+Theta2_grad(:,2:end) = Theta2_grad(:,2:end) + lambda/m * Theta2(:,2:end);
 grad = [Theta1_grad(:) ; Theta2_grad(:)];
 
 

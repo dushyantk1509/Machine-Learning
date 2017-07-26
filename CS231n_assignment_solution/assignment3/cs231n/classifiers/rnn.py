@@ -142,6 +142,8 @@ class CaptioningRNN(object):
         word_embed, word_embed_cache = word_embedding_forward(captions_in, W_embed)  # STEP 2 (N,T,W)
         if self.cell_type=='rnn':
             word_transform, rnn_forward_cache = rnn_forward(word_embed, affine_transform, Wx, Wh, b)   # STEP 3   (N,T,H)
+        if self.cell_type=='lstm':
+            word_transform, lstm_forward_cache = lstm_forward(word_embed, affine_transform, Wx, Wh, b)   # STEP 3   (N,T,H)
         temporal_affine_tranform, temporal_cache = temporal_affine_forward(word_transform, W_vocab, b_vocab)   # STEP 4   (N,T,V)
         loss, dx = temporal_softmax_loss(temporal_affine_tranform, captions_out, mask, verbose=False)    # STEP 5
         
@@ -150,6 +152,8 @@ class CaptioningRNN(object):
         dword_transform,grads['W_vocab'],grads['b_vocab'] = temporal_affine_backward(dx, temporal_cache)
         if self.cell_type=='rnn':
             dword_embed, daffine_transform,grads['Wx'],grads['Wh'],grads['b'] = rnn_backward(dword_transform, rnn_forward_cache)
+        if self.cell_type=='lstm':
+            dword_embed, daffine_transform,grads['Wx'],grads['Wh'],grads['b'] = lstm_backward(dword_transform, lstm_forward_cache)
         grads['W_embed'] = word_embedding_backward(dword_embed, word_embed_cache)
         grads['b_proj'] = np.sum(daffine_transform,axis=0)
         grads['W_proj'] = np.dot(features.T,daffine_transform)
@@ -219,6 +223,7 @@ class CaptioningRNN(object):
         #print(next_caption.shape)
         word_transform = features.dot(W_proj) + b_proj   # (N,H)
         #print(word_transform.shape)
+        next_c = np.zeros(word_transform.shape)   #  for LSTM
         for i in range(max_length):
             word_embed, _ = word_embedding_forward(next_caption, W_embed)    #(N,1,W)
             #print(word_embed.shape)
@@ -226,6 +231,11 @@ class CaptioningRNN(object):
                 (N,T,W) = word_embed.shape
                 word_embed = word_embed.reshape(N,W)
                 word_transform, _ = rnn_step_forward(word_embed, word_transform, Wx, Wh, b)    # (N,H)
+                #print(word_transform.shape)
+            if self.cell_type=='lstm':
+                (N,T,W) = word_embed.shape
+                word_embed = word_embed.reshape(N,W)
+                word_transform,next_c, _ = lstm_step_forward(word_embed, word_transform, next_c, Wx, Wh, b)    # (N,H)
                 #print(word_transform.shape)
             (N,H) = word_transform.shape
             word_transform = word_transform.reshape(N,1,H)
